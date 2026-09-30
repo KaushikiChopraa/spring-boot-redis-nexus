@@ -1,0 +1,15 @@
+{
+  "name": "employee-releases",
+  "online": true,
+  "storage": {
+    "blobStoreName": "default",
+    "strictContentTypeValidation": true,
+    "writePolicy": "ALLOW"
+  },
+  "cleanup": null,
+  "maven": {
+    "versionPolicy": "RELEASE",
+    "layoutPolicy": "STRICT",
+    "contentDisposition": "INLINE"
+  }
+}

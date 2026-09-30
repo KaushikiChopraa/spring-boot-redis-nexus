@@ -1,0 +1,406 @@
+{
+  "info": {
+    "name": "Employee Redis App",
+    "description": "API tests for the Employee Redis application. Run the requests in order.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Create employee",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/employees",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "employees"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Karan\",\n  \"lastName\": \"Malhotra\",\n  \"email\": \"karan.malhotra@example.com\",\n  \"department\": \"MARKETING\",\n  \"salary\": 58000,\n  \"joiningDate\": \"2022-09-12\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Persists the employee, puts it in the employee cache and evicts the list caches."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created', function () { pm.response.to.have.status(201); });",
+              "var body = pm.response.json();",
+              "pm.test('id assigned', function () { pm.expect(body.id).to.be.a('number'); });",
+              "pm.collectionVariables.set('employeeId', body.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Get all employees (cacheable)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/employees",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "employees"
+          ]
+        },
+        "description": "First call logs CACHE MISS and stores employees::all. Repeat calls are served from Redis."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+              "pm.test('returns an array', function () { pm.expect(pm.response.json()).to.be.an('array'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Get employee by id (cacheable)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/employees/{{employeeId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "employees",
+            "{{employeeId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+              "pm.test('correct id', function () { pm.expect(pm.response.json().id).to.eql(parseInt(pm.collectionVariables.get('employeeId'))); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Get employees by department (cacheable)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/employees/department/ENGINEERING",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "employees",
+            "department",
+            "ENGINEERING"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', function () { pm.response.to.have.status(200); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Employee summary (uses library utilities)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/employees/{{employeeId}}/summary",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "employees",
+            "{{employeeId}}",
+            "summary"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+              "var body = pm.response.json();",
+              "pm.test('summary computed by employee-library', function () { pm.expect(body).to.have.property('fullName'); pm.expect(body).to.have.property('salaryBand'); pm.expect(body).to.have.property('yearsOfService'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Update employee (CachePut)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/employees/{{employeeId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "employees",
+            "{{employeeId}}"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Karan Updated\",\n  \"lastName\": \"Malhotra\",\n  \"email\": \"karan.malhotra@example.com\",\n  \"department\": \"MARKETING\",\n  \"salary\": 64000,\n  \"joiningDate\": \"2022-09-12\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Updates the row and refreshes employee::{id} in Redis without a database read on the next GET."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+              "pm.test('name updated', function () { pm.expect(pm.response.json().firstName).to.eql('Karan Updated'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Get updated employee (served from cache)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/employees/{{employeeId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "employees",
+            "{{employeeId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', function () { pm.response.to.have.status(200); });",
+              "pm.test('shows updated data', function () { pm.expect(pm.response.json().firstName).to.eql('Karan Updated'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Delete employee (CacheEvict)",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/employees/{{employeeId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "employees",
+            "{{employeeId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('204 No Content', function () { pm.response.to.have.status(204); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Get deleted employee returns 404",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/employees/{{employeeId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "employees",
+            "{{employeeId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('404 Not Found', function () { pm.response.to.have.status(404); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Validation error returns 400",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/employees",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "employees"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"\",\n  \"lastName\": \"X\",\n  \"email\": \"bad-email\",\n  \"department\": \"HR\",\n  \"salary\": -5,\n  \"joiningDate\": \"2999-01-01\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Validation rules come from EmployeeValidator in employee-library."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('400 Bad Request', function () { pm.response.to.have.status(400); });",
+              "pm.test('lists validation messages', function () { pm.expect(pm.response.json().messages.length).to.be.above(0); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Duplicate email returns 409",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/employees",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "employees"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Dup\",\n  \"lastName\": \"Licate\",\n  \"email\": \"asha.verma@example.com\",\n  \"department\": \"HR\",\n  \"salary\": 40000,\n  \"joiningDate\": \"2020-01-01\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('409 Conflict', function () { pm.response.to.have.status(409); });"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "employeeId",
+      "value": "1"
+    }
+  ]
+}
